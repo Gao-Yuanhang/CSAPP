@@ -1,0 +1,5 @@
+{
+    "pasteImage.path": "images",
+    "pasteImage.basePath": "${workspaceFolder}",
+    "pasteImage.forceUnixStyleSeparator": true
+  }
