@@ -191,7 +191,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return (~x) + 1;
 }
 //3
 /* 
@@ -204,7 +204,11 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  int c1 = x & 0x11111110;
+  c1 = !(c1 ^ 0x00000030);
+  int minusNine = (~9) + 1;
+  int c2 = (x + minusNine) & 0x11111110;
+  return c1 & c2;
 }
 /* 
  * conditional - same as x ? y : z 
@@ -214,7 +218,9 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  int xp = !!x;
+  xp = (xp << 31) >> 31;
+  return (xp & y) + ((~xp) & z);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -224,7 +230,12 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  int condition = !((x ^ y) >> 31); //the first bit of x and y is different
+  int minusX = (~x) + 1;
+  int m = !(minusX >> 31);//return value when condition holds
+  int n = !!(x >> 31);//return value when condition not holds
+  int result = conditional(condition, m, n);
+  return result;
 }
 //4
 /* 
@@ -236,7 +247,10 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  int negX = (~x) + 1;
+  int cond1 = (x >> 31) + 1;
+  int cond2 = (negX >> 31) + 1;
+  return cond1 & cond2;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -251,6 +265,7 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
+  
   return 0;
 }
 //float
