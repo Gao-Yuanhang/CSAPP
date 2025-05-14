@@ -277,8 +277,86 @@ int logicalNeg(int x) {
  */
 int howManyBits(int x) {
   //I can only give an implementation that exceeds the max op limit
-  
-  return 0;
+  /*essentially, from left to right, find the first 0-1/1-0 boundery, and compress the multi-prefix-0s/1s to one 0/1,
+  then count the remained bit length
+  --step 1, unify the sign by ~, all start with 0
+  --step 2, convert e.g. 0001xxxxx..(x means we don't care its value) to 00011111...
+  --step 3, add all bits with the same weight 1(instead of 2^i)*/
+  int xp = !(x & (1 << 31));
+  int xPrime;
+  int result;
+
+  xp = (xp << 31) >> 31;
+  x = (xp & ~x) + ((~xp) & x);
+
+  xPrime = x;
+  xPrime = (x >> 1) | xPrime;
+  xPrime = (x >> 2) | xPrime;
+  xPrime = (x >> 3) | xPrime;
+  xPrime = (x >> 4) | xPrime;
+  xPrime = (x >> 5) | xPrime;
+  xPrime = (x >> 6) | xPrime;
+  xPrime = (x >> 7) | xPrime;
+  xPrime = (x >> 8) | xPrime;
+  xPrime = (x >> 9) | xPrime;
+  xPrime = (x >> 10) | xPrime;
+  xPrime = (x >> 11) | xPrime;
+  xPrime = (x >> 12) | xPrime;
+  xPrime = (x >> 13) | xPrime;
+  xPrime = (x >> 14) | xPrime;
+  xPrime = (x >> 15) | xPrime;
+  xPrime = (x >> 16) | xPrime;
+  xPrime = (x >> 17) | xPrime;
+  xPrime = (x >> 18) | xPrime;
+  xPrime = (x >> 19) | xPrime;
+  xPrime = (x >> 20) | xPrime;
+  xPrime = (x >> 21) | xPrime;
+  xPrime = (x >> 22) | xPrime;
+  xPrime = (x >> 23) | xPrime;
+  xPrime = (x >> 24) | xPrime;
+  xPrime = (x >> 25) | xPrime;
+  xPrime = (x >> 26) | xPrime;
+  xPrime = (x >> 27) | xPrime;
+  xPrime = (x >> 28) | xPrime;
+  xPrime = (x >> 29) | xPrime;
+  xPrime = (x >> 30) | xPrime;
+  xPrime = (x >> 31) | xPrime;
+  //now step2 is complete
+
+  //for step3, processing 2 bits at a time and make an adjust finally is more efficient, but anyway, the max op limit has been broken
+  result = 1;// it should be 1 larger than the all-1's-suffix bits length
+  result += (xPrime & (1));
+  result += (xPrime & (1 << 1)) >> 1;
+  result += (xPrime & (1 << 2)) >> 2;
+  result += (xPrime & (1 << 3)) >> 3;
+  result += (xPrime & (1 << 4)) >> 4;
+  result += (xPrime & (1 << 5)) >> 5;
+  result += (xPrime & (1 << 6)) >> 6;
+  result += (xPrime & (1 << 7)) >> 7;
+  result += (xPrime & (1 << 8)) >> 8;
+  result += (xPrime & (1 << 9)) >> 9;
+  result += (xPrime & (1 << 10)) >> 10;
+  result += (xPrime & (1 << 11)) >> 11;
+  result += (xPrime & (1 << 12)) >> 12;
+  result += (xPrime & (1 << 13)) >> 13;
+  result += (xPrime & (1 << 14)) >> 14;
+  result += (xPrime & (1 << 15)) >> 15;
+  result += (xPrime & (1 << 16)) >> 16;
+  result += (xPrime & (1 << 17)) >> 17;
+  result += (xPrime & (1 << 18)) >> 18;
+  result += (xPrime & (1 << 19)) >> 19;
+  result += (xPrime & (1 << 20)) >> 20;
+  result += (xPrime & (1 << 21)) >> 21;
+  result += (xPrime & (1 << 22)) >> 22;
+  result += (xPrime & (1 << 23)) >> 23;
+  result += (xPrime & (1 << 24)) >> 24;
+  result += (xPrime & (1 << 25)) >> 25;
+  result += (xPrime & (1 << 26)) >> 26;
+  result += (xPrime & (1 << 27)) >> 27;
+  result += (xPrime & (1 << 28)) >> 28;
+  result += (xPrime & (1 << 29)) >> 29;
+  result += (xPrime & (1 << 30)) >> 30;
+  return result;
 }
 //float
 /* 
