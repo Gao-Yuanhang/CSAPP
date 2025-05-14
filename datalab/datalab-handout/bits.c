@@ -165,9 +165,15 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  int tmin = 1<<31;
-  int a = x + 1;
-  return !(a ^ tmin);
+
+  // ~(x+1)==x && ~(x+1)!=0
+  // without an change of sign when adding 1, ~(x+1) cannot equal to x
+  // there is an execption, when x=-1
+  int a = x+1;
+  int b = ~a;
+  int cond1 = !(b ^ x);
+  int cond2 = !! b;
+  return cond1 & cond2;
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -178,10 +184,11 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  int m = 0x55555555;
-  int minusOne = -1;
-  int mOrx = ~(~m & ~x);
-  return !(mOrx ^ minusOne);
+  int m = 0x00000055;
+  int n = (m << 8) + m;
+  int p = (n << 16) + n;//0x55555555
+  int pAndx = p & x; //must be the same as p
+  return !(pAndx ^ p);
 }
 /* 
  * negate - return -x 
@@ -204,10 +211,11 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  int c1 = x & 0x11111110;
-  c1 = !(c1 ^ 0x00000030);
+  int constant = (~2)+1;//0x11111110
+  int t = x & constant;
+  int c1 = !(t ^ 0x00000030);
   int minusNine = (~9) + 1;
-  int c2 = (x + minusNine) & 0x11111110;
+  int c2 = (x + minusNine) & constant;
   return c1 & c2;
 }
 /* 
@@ -234,8 +242,11 @@ int isLessOrEqual(int x, int y) {
   int minusX = (~x) + 1;
   int m = !(minusX >> 31);//return value when condition holds
   int n = !!(x >> 31);//return value when condition not holds
-  int result = conditional(condition, m, n);
-  return result;
+
+  //below the same as call function conditional
+  int xp = !!condition;
+  xp = (xp << 31) >> 31;
+  return (xp & m) + ((~xp) & n);
 }
 //4
 /* 
@@ -265,6 +276,7 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
+  //I can only give an implementation that exceeds the max op limit
   
   return 0;
 }
