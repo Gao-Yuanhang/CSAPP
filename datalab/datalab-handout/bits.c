@@ -284,7 +284,7 @@ int howManyBits(int x) {
   --step 3, add all bits with the same weight 1(instead of 2^i)*/
   int xp = !(x & (1 << 31));
   int xPrime;
-  int result;
+  int result; 
 
   xp = (xp << 31) >> 31;
   x = (xp & ~x) + ((~xp) & x);
