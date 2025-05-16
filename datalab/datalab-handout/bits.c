@@ -371,7 +371,32 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+  int expMask = 0x000000FF << 23;//011111111000...00
+  int addOne2Exp = 1 << 23;
+  int signExpMask = expMask + (1 << 31);//111111111000..00
+  int mantissaMask = ~signExpMask;
+  int mantissa;
+  if((uf & expMask) == expMask){
+	//meaning the exponent is all 1, corresponding to infinity or NAN, directly return
+	return uf;
+  }else if((uf & expMask) == 0x00000000){
+	//meaning a denormalized number, after operation may get a normalized number(only when the first bit of mantissa is 1)
+	//when first bit of mantissa is 1, get a normalized number, shift on mantissa and operate on exponent
+	//else, still a denormalized number, just shift on the mantissa
+	//the two cases can be unified
+	//because of the overflow mantissa in case 1, an 1 occurs on the position of lowest exponent, making the result a normalized number
+	mantissa = (uf & mantissaMask) << 1;
+	return (uf & signExpMask) + mantissa;
+  }else{
+	//meaning a normalized number, after operation may get overflow and become infinity
+	uf = uf + addOne2Exp;
+	if((uf & expMask) == expMask){
+		return uf & signExpMask;
+	}else{
+		return uf;
+	}
+  }
+  return uf;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -386,7 +411,51 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  /* equivalent with int(f)
+  *  int(f) in C uses the method 'truncate toward zero'
+  *  round() in C uses the method 'round half to even'
+  */
+  int sign = uf & (1 << 31);
+  int mantissa = 0x000000FF;
+  int exponent;
+  int maxFloat;
+  int tMax = (1 << 31) - 1;//tMin - 1
+  int expMask = 0x000000FF << 23;//011111111000...00
+  int expValue;//value of exponent, how many bits should be right shifted(or left shifted)
+  int floatNum;
+
+  uf = uf & tMax;//convert float to positive, remains rest parts the same 
+  mantissa = mantissa + (0x000000FF << 8) + (0x000000FF << 16);
+  mantissa = mantissa - (1 << 23);//now mantissa is 00..00011..11(23 of 1's)
+
+  //firstly check if out of range, we can represent Tmax and Tmin in the form of closest float number
+  //rules for comparing float and int are identical
+  //for float, the sign can be considered seperately
+  //maxFloat's exponent should be 157, get a right shift of 30
+  exponent = 0x0000009D;//10011101
+  exponent = exponent << 23;//to the position of exponent
+  maxFloat = exponent + mantissa;//nearest float corresponding to int max
+
+  if(uf > maxFloat){
+	return 0x00000080 << 24;
+  }else{
+	expValue = ((uf & expMask) >> 23) - 127;
+	if(expValue < 0){
+		//meaning a denormalized number
+		return 0;
+	}else{
+		//meaning a normalized number
+		floatNum =(uf & mantissa) + (1 << 23);//add the first bit that is omitted, now 000..01[- mantissa of uf]
+		if(expValue <= 23){
+			//right shift floatNum, some bits get lost,expValue=n(multiply by 2^n) corresponding to right shift 23-n bits]
+			floatNum = floatNum >> (23 - expValue);
+		}else{
+			//left shift floatNum
+			floatNum = floatNum << (expValue - 23);
+		}
+	}
+  }
+  return floatNum + sign;//restore the sign
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -402,5 +471,26 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+	int upperBound = 127;
+	int lowerBound = -149;
+	int normalBound = -126;//all of the 3 bounds are closed, e.g. -126 is the smallest num that can be represented in normalized number
+	int exp = 1;//used to get the binary representation of x+127
+	if(x < lowerBound){
+		return 0;
+	}else if((x >= lowerBound) && (x < normalBound)){
+		//use a denormalized number
+		return 1 << (x + 149);
+	}else if((x >= normalBound) && (x <= upperBound)){
+		//use a normalized number
+		while(1){
+			if(exp - 127 == x){
+				break;
+			}
+			exp++;
+		}
+		return exp << 23;//sign and mantissa are all 0's
+	}else{
+		//return +INF
+		return 0x000000FF << 23;
+	}
 }
