@@ -166,13 +166,13 @@ int tmin(void) {
  */
 int isTmax(int x) {
 
-  // ~(x+1)==x && ~(x+1)!=0
+  // ~(x+1)==x && (x+1)!=0
   // without an change of sign when adding 1, ~(x+1) cannot equal to x
   // there is an execption, when x=-1
   int a = x+1;
   int b = ~a;
   int cond1 = !(b ^ x);
-  int cond2 = !! b;
+  int cond2 = !! a;
   return cond1 & cond2;
 }
 /* 
@@ -184,9 +184,9 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  int m = 0x00000055;
+  int m = 0x000000AA;
   int n = (m << 8) + m;
-  int p = (n << 16) + n;//0x55555555
+  int p = (n << 16) + n;//0xAAAAAAAA, 101010...10
   int pAndx = p & x; //must be the same as p
   return !(pAndx ^ p);
 }
@@ -211,11 +211,12 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  int constant = (~2)+1;//0x11111110
-  int t = x & constant;
-  int c1 = !(t ^ 0x00000030);
-  int minusNine = (~9) + 1;
-  int c2 = (x + minusNine) & constant;
+  int constant = (~16)+1;//111...110000
+  int t1 = x & constant;
+  int c1 = !(t1 ^ 0x00000030);
+  int minusTen = (~10) + 1;
+  int t2 = (x + minusTen) & constant;
+  int c2 = !!(t2 ^ 0x00000030);
   return c1 & c2;
 }
 /* 
@@ -238,9 +239,9 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  int condition = !((x ^ y) >> 31); //the first bit of x and y is different
+  int condition = !((x ^ y) >> 31);//check if the first bit of x and y is different, different sign -> 0
   int minusX = (~x) + 1;
-  int m = !(minusX >> 31);//return value when condition holds
+  int m = !((y + minusX) >> 31);//return value when condition holds, depends on the sign of y-x
   int n = !!(x >> 31);//return value when condition not holds
 
   //below the same as call function conditional
@@ -282,9 +283,9 @@ int howManyBits(int x) {
   --step 1, unify the sign by ~, all start with 0
   --step 2, convert e.g. 0001xxxxx..(x means we don't care its value) to 00011111...
   --step 3, add all bits with the same weight 1(instead of 2^i)*/
-  int xp = !(x & (1 << 31));
+  int xp = !!(x & (1 << 31));//negative -> 1
   int xPrime;
-  int result; 
+  int result;
 
   xp = (xp << 31) >> 31;
   x = (xp & ~x) + ((~xp) & x);
@@ -412,14 +413,14 @@ unsigned floatScale2(unsigned uf) {
  */
 int floatFloat2Int(unsigned uf) {
   /* equivalent with int(f)
-  *  int(f) in C uses the method 'truncate toward zero'
+  *  int(f) in C uses the method 'truncate toward zero', that is, discard the decimals
   *  round() in C uses the method 'round half to even'
   */
   int sign = uf & (1 << 31);
   int mantissa = 0x000000FF;
   int exponent;
   int maxFloat;
-  int tMax = (1 << 31) - 1;//tMin - 1
+  int tMax = ((1 << 31) >> 31) ^ (1 << 31);//tMin - 1
   int expMask = 0x000000FF << 23;//011111111000...00
   int expValue;//value of exponent, how many bits should be right shifted(or left shifted)
   int floatNum;
@@ -430,7 +431,7 @@ int floatFloat2Int(unsigned uf) {
 
   //firstly check if out of range, we can represent Tmax and Tmin in the form of closest float number
   //rules for comparing float and int are identical
-  //for float, the sign can be considered seperately
+  //for float, the sign can be considered *finally*
   //maxFloat's exponent should be 157, get a right shift of 30
   exponent = 0x0000009D;//10011101
   exponent = exponent << 23;//to the position of exponent
@@ -441,7 +442,7 @@ int floatFloat2Int(unsigned uf) {
   }else{
 	expValue = ((uf & expMask) >> 23) - 127;
 	if(expValue < 0){
-		//meaning a denormalized number
+		//meaning a denormalized number or a small normalized number
 		return 0;
 	}else{
 		//meaning a normalized number
@@ -455,7 +456,12 @@ int floatFloat2Int(unsigned uf) {
 		}
 	}
   }
-  return floatNum + sign;//restore the sign
+  if(!sign){
+	//positive number
+	return floatNum;
+  }else{
+	return (~floatNum) + 1;
+  }
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x

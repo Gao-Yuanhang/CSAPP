@@ -315,6 +315,7 @@ static int test_function(test_ptr t) {
        number of tests, independent of the number of arguments */
     if (args == 1) {
 	arg_test_range[0] = TEST_RANGE;
+	arg_test_range[1] = arg_test_range[0];//added by me, because it can lead to an uninitialized warning
     }
     else if (args == 2) {
 	arg_test_range[0] = pow((double)TEST_RANGE, 0.5);  /* sqrt */
