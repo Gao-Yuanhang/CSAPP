@@ -420,7 +420,8 @@ int floatFloat2Int(unsigned uf) {
   int mantissa = 0x000000FF;
   int exponent;
   int maxFloat;
-  int tMax = ((1 << 31) >> 31) ^ (1 << 31);//tMin - 1
+  //int tMax = ((1 << 31) >> 31) ^ (1 << 31);//tMin - 1
+  int tMax = 0x7fffffff;
   int expMask = 0x000000FF << 23;//011111111000...00
   int expValue;//value of exponent, how many bits should be right shifted(or left shifted)
   int floatNum;
