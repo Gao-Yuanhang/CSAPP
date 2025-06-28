@@ -122,50 +122,75 @@ phase7
 对应教材：章节3.10.3，3.10.4。
 ctarget: An executable program vulnerable to code-injection attacks
 rtarget: An executable program vulnerable to return-oriented-programming attacks
-对攻击的范围有一定限制：如果随便输入字符串，大概率覆盖返回地址的是一个没有被分配给当前程序的内存地址，访问时程序会因为段错误终止，而不是执行攻击者期待的行为；但即使返回到有效的地址，这个地址也有一定限制，如只能影响程序代码不能影响测试代码，如下：
-```
-1. You must do the assignment on a machine that is similar to the one that generated your targets.
-2. Your solutions may not use attacks to circumvent the validation code in the programs. Specifically,
-any address you incorporate into an attack string for use by a ret instruction should be to one of the
-following destinations:
-– The addresses for functions touch1, touch2, or touch3.
-– The address of your injected code
-– The address of one of your gadgets from the gadget farm.
-3. You may only construct gadgets from file rtarget with addresses ranging between those for func-
-tions start_farm and end_farm.
-```
+对攻击的范围有一定限制：如果随便输入字符串，大概率覆盖返回地址的是一个没有被分配给当前程序的内存地址，访问时程序会因为段错误终止，而不是执行攻击者期待的行为；但即使返回到有效的地址，这个地址也有一定限制，如只能影响程序代码不能影响测试代码
 在任何位置都不能出现‘\n’对应的ASCII码，会导致getbuf停止读入。
 cookie的作用是为每个人生成不一样的target文件，在请求targetk.tar文件时，将个人电脑与k这个序号关联起来，以执行正确的测试。但由于当前是离线作业，这个功能是不能用的，直接运行会报错在illegal host。所以要加-q这一参数，即不启用服务器，仅在本地运行。
 ### Part1 code injection attacks
 
-x/6xg 0x5561dc78(函数test到函数getbuf，getbuf运行时的rsp位置)
+```
 gdb ./ctarget
 Cookie: 0x59b997fa
-gcc -c inject_code3.s 
+//本lab使用的cookie
+gcc -c inject_code3.s
+//将汇编语言转机器码
 objdump -d inject_code3.o > inject_code3.d
+//将机器码反汇编（得到每一条命令对应的机器码）
 ./hex2raw < exploit3.txt | ./ctarget -q
+//测试运行
 run < <(./hex2raw < exploit3.txt) -q
-从文件读取输入加转换直接连接gdb
-
-不能直接向地址写入64位的立即数，可以用寄存器作为过渡
-
+//从文件读取输入并将ASCII转String后直接连接gdb进入调试
+```
+※ 可以向地址写入32位立即数，但不能直接向地址写入64位的立即数，可以用寄存器作为过渡
+※ 考虑到加法的模性质，这里的对栈指针加一个值相当于正常的sub栈指针，即向低地址增长
 add    $0xffffffffffffff80,%rsp   相当于sub ...
 
+**level1**，单纯的地址跳转，需要覆盖返回地址，但注意顺序，目标地址的字符串与它的ASCII码形式在**字节上（而不是位上）**排列顺序相反。因为输入是从左往右读，左边是低位，但实际的地址右边是低位。
 
-**level1**，单纯的地址跳转，需要覆盖返回地址，但注意顺序，目标地址的字符串与它的ASCII码形式在**字节上（而不是位上）**排列顺序相反。因为输入是从左往右读，左边是低位，但实际的地址右边是低位。\
-**level2**，执行注入代码，需要两次人为构造的跳转，大体流程为：缓冲区溢出覆盖getbuf的返回地址，并注入代码->getbuf返回时跳转到注入代码的位置->给注入代码使用push构造返回地址（即目标函数touch）->目标代码执行->目标代码返回，跳转到touch函数。\
-在ret指令执行时，取出rsp位置的数据作为下一条指令的地址，并将rsp加8，这个过程是比较透明的（不会将计算写在汇编里，算是ret的语义）。对于注入的代码，并没有真正意义调用它的函数，所以要用push人为制造一个返回地址。\
+**level2**，执行注入代码，需要两次人为构造的跳转，大体流程为：缓冲区溢出覆盖getbuf的返回地址，并注入代码->getbuf返回时跳转到注入代码的位置->给注入代码使用push构造返回地址（即目标函数touch）->目标代码执行->目标代码返回，跳转到touch函数。
+
+在ret指令执行时，取出rsp位置的数据作为下一条指令的地址，并将rsp加8，这个过程是比较透明的（不会将计算写在汇编里，算是ret的语义）。对于注入的代码，并没有真正意义调用它的函数，所以要用push人为制造一个返回地址。
+
 **level3**，大体框架与level2一致，只是多了写内存的一步。容易出现的问题就是segment fault非法访存，只要是对于已映射的空间，就没有问题。比如访问调用它的祖先函数的栈帧是完全没有问题的。\
 这里不允许直接将64位立即数写入内存，需要用寄存器过渡一下；以及读取char*时，逐字节读取（也就是两个十六进制数），读到0x00才会终止，所以要写入终止符号。\
 具体流程见下图所示。
 ![alt text](./images/8870dab2ae830da49fa3ee8961a6331.jpg)
 ![alt text](./images/00a82de7c6aef9d5f0a3357d8b8d0ec.jpg)
 ### Part2 return oriented programming
+由于使用了栈随机化技术（运行时栈被随机化，**但存放可执行代码的内存位置是不变的**，这也给了ROP攻击操作的空间）和约束可执行代码的区域这两种防范方法，代码注入在Part2并不可行。\
+因此使用ROP（return oriented programming）这一技术进行攻击，其原理就是使用被攻击程序自己的函数片段拼凑成我们想执行的程序。而可以使用的只有ret前某一位置到ret的一小段汇编序列（更实际地说，一条指令），称为gadget\
+汇编指令的机器码设计上，就是只看最前面的操作码就可以没有歧义地解释这条指令：是什么、有多长以及其他语义。所以实际上，通过截断指令，我们还能拥有更多的可选指令：
+```
+4019a0:	8d 87 48 89 c7 c3    	lea    -0x3c3876b8(%rdi),%eax
+//对于这条汇编，如果我们让代码跳转到4019a2，即48处
+//会立刻得知这是一条mov R1 R2指令，机器码为48 89 c7，即mov rax rdi
+//然后c3表示ret
+```
+- 如果上面的‘48 89 c7’后不是c3？\
+如果是90，表示nop（no operation）；或者是如图3-D中的四个指令对应的机器码（其中的前两条会操作寄存器，但这是在与自身与/或，不会改变其值；而cmp和test指令本来也不会改变寄存器的值而只会改变标识位） 都没有问题，没有任何副作用\
+- 如何连续执行多条指令？\
+  被攻击函数（即getbuf）的栈帧上方（高地址处）是原本的返回地址，通过栈溢出，我们用第一个gadget的起始地址替换此处的8字节；gadget不是通过正常调用到达的，是一个不完整的函数，因为只执行ret前的很少量代码，它并没有栈帧，也就是说当前rsp指向的就是它的‘返回地址’，也就是我们注入的第二个8字节位置。当第一个gadget结束，即走到ret，rsp内地址指向的指令将被执行，同时rsp被加8；以此类推...
+- 如何注入数据到寄存器？\
+  当gadget的指令是pop，我们可以将注入的一个数据弹出进指定的寄存器
 
-./hex2raw < exploit4.txt | ./rtarget -q
+**level1/2**\
+略
 
+**level3**\
+回顾一下我们现在可以进行的操作：可以将值在寄存器间转移、可以将我们指定的值写入寄存器，可以确定这个函数最后跳转到哪里\
+假定每一个gadget都只执行一条**有效的**指令（此lab中事实如此）。在lab3中我们需要写数据到内存，再将数据的位置写入寄存器；前者能做到，通过覆盖栈的内容，我们可以替换返回地址，自然也可以写入数据；对于后者，唯一将地址写入寄存器的方式是mov $rsp R，因为只有rsp内存放地址。但两者无法再一个gadget内同时实现。\
+扩展的gadget farm中提供了一条完整的指令作为gadget：
+```
+4019d6:	48 8d 04 37          	lea    (%rdi,%rsi,1),%rax
+```
+借助它我们可以实现地址偏移，从而分离这两步操作，具体流程如下图所示
+![alt text](./images/055ebd6b162aca9eb4b6e0eb3625651.jpg)
 
-./hex2raw < exploit5.txt | ./rtarget -q
+正常操作是向rsi中先用pop数据的方式写一个指定的偏移量，再将cookie字符串的二进制表示写入栈上方的指定内存；但我并没有pop，而是直接用了rsi中原有的值0x30（这是之前执行的函数残留的值，虽然栈是随机的，但这个值是稳定的）
 
-run < <(./hex2raw < exploit5.txt) -q
+**最后一个问题**\
+在我做完上面的一切后，调试已经能跑通了，可以正确跳转到touch3，且此时已经能显示传入的char*代表字符串就是cookie对应的字符串，但是结果却是segment fault，原因在于hexmatch中<__sprintf_chk@plt>函数中的报错，十分神奇\
+我一开始怀疑是因为我错误地覆盖了或没有保存寄存器的值，但细想显然并非如此：保存寄存器的值是为了**正确地返回被攻击函数（getbuf）的被调用者（test）**，但这里并不期望可以正确返回，只要hit到touch函数即可，保存寄存器并没有意义；栈帧也是如此，通过栈溢出，我们**覆盖了高地址的栈帧**，也就是返回函数的栈被破坏了，但这并不影响之后的内容。在hit touch3函数后，一切新调用的复杂函数都是在向低地址增长，不会对我们写入的内容有任何影响\
+参考https://zhuanlan.zhihu.com/p/710856500后\
+问题和我一样，原因在于linux系统**对栈指针rsp的128位对齐要求**，也就是rsp中地址结尾**只能是0不能是8**\，更确切地说，是在**call之前**必须满足**这一对齐**要求
+尤其是存放touch3地址处的rsp必须满足对齐，因为其它gadget都是只执行一行指令的小函数，也不会再引用rsp的值，不对齐就算了；但hit到touch3后，要进行复杂的库函数调用。也就是说，之后的栈都是基于这一刻的rsp来增长和收缩的，这一刻不对齐会导致之后某处call之前不对齐导致段错误（因为按规范，其它部分的代码肯定是基于前面对齐的前提下保证对齐；那么前面不对齐+按这个前提做出调整，结果必然是不对齐）
 
